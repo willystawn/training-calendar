@@ -1,5 +1,3 @@
-
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Calendar from './components/Calendar';
 import Notes from './components/Notes';
@@ -7,8 +5,12 @@ import DownloadButton from './components/DownloadButton';
 import EventModal from './components/EventModal';
 import { supabase } from './lib/supabaseClient';
 import { TrainingEvent } from './types';
+import Auth from './components/Auth';
+import { Session } from '@supabase/supabase-js';
+
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<TrainingEvent[]>([]);
@@ -18,6 +20,26 @@ const App: React.FC = () => {
     date: Date | null;
     event: TrainingEvent | null;
   }>({ isOpen: false, date: null, event: null });
+  const [authLoading, setAuthLoading] = useState(true);
+
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setAuthLoading(false);
+    };
+    fetchSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
 
   // Dynamically load Google Fonts to prevent CORS issues with html-to-image
   useEffect(() => {
@@ -75,8 +97,10 @@ const App: React.FC = () => {
   }, [currentDate]);
 
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    if (session) {
+        fetchEvents();
+    }
+  }, [fetchEvents, session]);
 
   const handlePrevMonth = () => {
     setCurrentDate(d => {
@@ -142,6 +166,24 @@ const App: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (authLoading) {
+    return (
+       <div className="min-h-screen bg-orange-50 flex items-center justify-center">
+        <svg className="animate-spin h-12 w-12 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Auth />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
@@ -149,7 +191,7 @@ const App: React.FC = () => {
         <div ref={printRef} className="bg-orange-50 p-6 rounded-2xl relative">
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="flex-grow">
-               <div className="flex justify-between items-center mb-6">
+               <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
                  <h1 className="text-4xl font-bold text-gray-800">
                     {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()}
                  </h1>
@@ -157,6 +199,7 @@ const App: React.FC = () => {
                     <button onClick={handlePrevMonth} className="px-4 py-2 bg-amber-300 text-gray-800 rounded-lg border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-amber-400">&lt;</button>
                     <button onClick={handleToday} className="px-4 py-2 bg-white text-gray-800 rounded-lg border-2 border-black/70 shadow-[2px_2px_0px_rgba(0,0,0,0.5)] hover:bg-gray-100">Today</button>
                     <button onClick={handleNextMonth} className="px-4 py-2 bg-amber-300 text-gray-800 rounded-lg border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-amber-400">&gt;</button>
+                    <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:bg-red-600">Logout</button>
                  </div>
               </div>
               <Calendar
