@@ -1,0 +1,6 @@
+{
+  "name": "Monthly Training Calendar",
+  "description": "An interactive monthly training calendar to visualize and manage schedules, inspired by a hand-drawn design. You can download the current view as an image.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
